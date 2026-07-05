@@ -86,6 +86,10 @@ function readIssues(issuesDir) {
       const { meta, body } = parseFrontmatter(raw);
       return {
         id: meta.id || basename(f, ".md"),
+        type: meta.type || "task",
+        parent: meta.parent || "",
+        color: meta.color || "",
+        shortcode: meta.shortcode || "",
         title: meta.title || f,
         status: (meta.status || "backlog").replace(/-/g, "_"),
         created: meta.created || "",
@@ -126,12 +130,21 @@ function nextId(issuesDir) {
   return nums.length > 0 ? Math.max(...nums) + 1 : 1;
 }
 
-function createIssue(issuesDir, { title, body }) {
+function createIssue(issuesDir, { title, body, type, parent, color, shortcode }) {
   mkdirSync(issuesDir, { recursive: true });
   const id = padId(nextId(issuesDir));
   const today = new Date().toISOString().slice(0, 10);
+  const t = type || "task";
+  const meta = { id: `"${id}"`, type: t };
+  if (parent) meta.parent = `"${parent}"`;
+  if (color) meta.color = color;
+  if (shortcode) meta.shortcode = shortcode;
+  // Epics nehmen nicht am Spalten-Workflow teil (E5): kein status-Feld.
+  if (t !== "epic") meta.status = "backlog";
+  meta.title = title;
+  meta.created = today;
   const content = serializeFrontmatter(
-    { id: `"${id}"`, status: "backlog", title, created: today },
+    meta,
     body || "\n## Kontext\n\n## Aufgabe\n\n## Akzeptanzkriterium\n\n## Abhaengigkeiten\n"
   );
   writeFileSync(join(issuesDir, `${id}.md`), content, "utf-8");
