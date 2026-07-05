@@ -39,7 +39,11 @@ node src/board.mjs code repo-name
 
 Das Kit bettet `board.mjs` und `board-ui.mjs` als Base64-Blobs in seinen `install.mjs` ein, damit Kit-Nutzer das Board ohne Extra-Schritt bekommen. Nach Änderungen in diesem Repo muss der Kit-Installer aktualisiert werden. Das geht **manuell** in drei Schritten (im ausgecheckten Kit-Repo, `<board-ui>` und `<kit>` sind die jeweiligen Repo-Pfade):
 
-1. Aktuelle Dateien aus diesem Repo ins Kit kopieren:
+1. Aktuelle Dateien aus diesem Repo ins Kit kopieren. Am einfachsten über das mitgelieferte Script:
+   ```bash
+   npm run sync
+   ```
+   Es liest das Zielverzeichnis aus `sync.config.json` (rechnerspezifisch, nicht eingecheckt — Vorlage: `sync.config.example.json`) und kopiert `src/board.mjs` und `src/board-ui.mjs` dorthin. Alternativ von Hand:
    ```bash
    cp <board-ui>/src/board.mjs    <kit>/kit/board.mjs
    cp <board-ui>/src/board-ui.mjs <kit>/kit/board-ui.mjs

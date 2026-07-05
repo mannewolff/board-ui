@@ -8,7 +8,8 @@
     "board-ui": "src/board-ui.mjs"
   },
   "scripts": {
-    "start": "node src/board-ui.mjs"
+    "start": "node src/board-ui.mjs",
+    "sync": "node tools/sync-to-kit.mjs"
   },
   "engines": {
     "node": ">=18"

@@ -21,3 +21,6 @@ rad.json
 *.flf
 #Test results file
 TestResults.xml
+
+# Lokale Sync-Konfiguration (rechnerspezifisch, siehe sync.config.example.json)
+sync.config.json
