@@ -727,7 +727,8 @@ const HTML = `<!DOCTYPE html>
     margin-bottom: 4px;
   }
   .new-issue-field input,
-  .new-issue-field textarea {
+  .new-issue-field textarea,
+  .new-issue-field select {
     width: 100%;
     padding: 8px 10px;
     border: 1px solid #d0d7de;
@@ -735,6 +736,7 @@ const HTML = `<!DOCTYPE html>
     font-family: inherit;
     font-size: 13px;
     color: #172b4d;
+    background: #fff;
   }
   .new-issue-field textarea {
     min-height: 180px;
@@ -742,7 +744,8 @@ const HTML = `<!DOCTYPE html>
     font-family: monospace;
   }
   .new-issue-field input:focus,
-  .new-issue-field textarea:focus { outline: none; border-color: #0075ca; }
+  .new-issue-field textarea:focus,
+  .new-issue-field select:focus { outline: none; border-color: #0075ca; }
   .new-issue-create:not(:disabled) { cursor: pointer; }
 
   /* Listenansicht */
@@ -1190,8 +1193,11 @@ function closeModal() {
 
 const NEW_ISSUE_TEMPLATE = "\\n## Kontext\\n\\n## Aufgabe\\n\\n## Akzeptanzkriterium\\n\\n## Abhaengigkeiten\\n";
 
-function openNewIssueModal(opts) {
+async function openNewIssueModal(opts) {
   opts = opts || {};
+  await loadEpicsMap();
+  const epics = Object.values(epicsById);
+
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
 
@@ -1200,10 +1206,21 @@ function openNewIssueModal(opts) {
   window_.innerHTML =
     \`<div class="modal-header">
       <div class="modal-title">Neues Issue</div>
-      <div class="modal-meta"><span class="modal-badge" style="background:#dfe1e6;color:#42526e">Backlog</span></div>
       <button class="modal-close" aria-label="Schliessen">×</button>
     </div>
     <div class="modal-body">
+      <div class="new-issue-field">
+        <label for="new-issue-type">Typ</label>
+        <select id="new-issue-type">
+          <option value="task">Task</option>
+          <option value="story">Story</option>
+          <option value="epic">Epic</option>
+        </select>
+      </div>
+      <div class="new-issue-field" id="new-issue-parent-field">
+        <label for="new-issue-parent">Epic</label>
+        <select id="new-issue-parent"></select>
+      </div>
       <div class="new-issue-field">
         <label for="new-issue-title">Titel</label>
         <input id="new-issue-title" type="text" placeholder="Kurzer, praeziser Titel">
@@ -1218,10 +1235,28 @@ function openNewIssueModal(opts) {
   overlay.appendChild(window_);
   document.body.appendChild(overlay);
 
+  const typeSelect = window_.querySelector("#new-issue-type");
+  const parentField = window_.querySelector("#new-issue-parent-field");
+  const parentSelect = window_.querySelector("#new-issue-parent");
   const titleInput = window_.querySelector("#new-issue-title");
   const bodyInput = window_.querySelector("#new-issue-body");
   const createBtn = window_.querySelector(".new-issue-create");
   bodyInput.value = NEW_ISSUE_TEMPLATE;
+
+  parentSelect.innerHTML = '<option value="">(kein Epic)</option>' +
+    epics.map(function (e) {
+      return '<option value="' + escHtml(e.id) + '">' + escHtml(epicShortcode(e)) + ' – ' + escHtml(e.title) + '</option>';
+    }).join('');
+
+  typeSelect.value = opts.type || "task";
+  if (opts.parent) parentSelect.value = opts.parent;
+
+  function syncParentVisibility() {
+    // Epics haben keinen Parent (E4/E5)
+    parentField.style.display = typeSelect.value === "epic" ? "none" : "";
+  }
+  syncParentVisibility();
+  typeSelect.addEventListener("change", syncParentVisibility);
 
   titleInput.addEventListener("input", () => {
     createBtn.disabled = !titleInput.value.trim();
@@ -1231,10 +1266,12 @@ function openNewIssueModal(opts) {
     const title = titleInput.value.trim();
     if (!title) return;
     createBtn.disabled = true;
+    const type = typeSelect.value;
+    const parent = type === "epic" ? "" : parentSelect.value;
     const res = await fetch("/api/issues", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, body: bodyInput.value, type: opts.type, parent: opts.parent }),
+      body: JSON.stringify({ title, body: bodyInput.value, type, parent }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
