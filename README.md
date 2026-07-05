@@ -35,6 +35,24 @@ node src/board.mjs issue comment <id> --text "..."
 node src/board.mjs code repo-name
 ```
 
+## Sync mit dem claude-workflow-kit
+
+Das Kit bettet `board.mjs` und `board-ui.mjs` als Base64-Blobs in seinen `install.mjs` ein, damit Kit-Nutzer das Board ohne Extra-Schritt bekommen. Nach Änderungen in diesem Repo muss der Kit-Installer aktualisiert werden. Das geht **manuell** in drei Schritten (im ausgecheckten Kit-Repo, `<board-ui>` und `<kit>` sind die jeweiligen Repo-Pfade):
+
+1. Aktuelle Dateien aus diesem Repo ins Kit kopieren:
+   ```bash
+   cp <board-ui>/src/board.mjs    <kit>/kit/board.mjs
+   cp <board-ui>/src/board-ui.mjs <kit>/kit/board-ui.mjs
+   ```
+2. Eingebettete Blobs neu generieren:
+   ```bash
+   cd <kit> && node tools/sync-blobs.mjs
+   ```
+   Das schreibt die neuen Blobs in `install.mjs`. `node tools/sync-blobs.mjs --check` prüft nur (Exit 1 bei Drift, ohne zu ändern).
+3. Im Kit-Repo committen und pushen.
+
+Eine automatisierte Variante über GitHub Actions (board-ui-Release stößt einen Kit-Sync an) wäre möglich, wurde aber bewusst zugunsten dieses manuellen Wegs zurückgestellt — der spart die sonst nötigen Cross-Repo-Tokens.
+
 ## Lizenz
 
 GPL-3.0-only (siehe [LICENSE](LICENSE)).
