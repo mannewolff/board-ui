@@ -896,6 +896,17 @@ const HTML = `<!DOCTYPE html>
   .epic-mini-col.col-in_progress .epic-mini-colhead .dot { background: #e4b400; }
   .epic-mini-col.col-in_review .epic-mini-colhead .dot { background: #d93f0b; }
   .epic-mini-col.col-done .epic-mini-colhead .dot { background: #0e8a16; }
+
+  /* Epic-Badge auf Story-/Task-Karten (Board + Liste) */
+  .card-epic {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 2px 8px; border-radius: 10px;
+    font-size: 10px; font-weight: 700; letter-spacing: .4px;
+    width: fit-content;
+  }
+  .card-epic-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .card > .card-epic { margin: 10px 12px 0; }
+  .list-epic { margin-right: 2px; vertical-align: middle; }
 </style>
 </head>
 <body>
@@ -1250,7 +1261,19 @@ function buildCard(issue) {
   card.draggable = true;
   card.dataset.id = issue.id;
 
+  const epic = issue.parent ? epicsById[issue.parent] : null;
+  let badgeHtml = "";
+  if (epic) {
+    const c = epicColor(epic);
+    card.style.borderLeft = "4px solid " + c;
+    badgeHtml =
+      '<div class="card-epic" style="color:' + c + ';background:color-mix(in srgb,' + c + ' 13%,#fff)">' +
+        '<span class="card-epic-dot" style="background:' + c + '"></span>' + escHtml(epicShortcode(epic)) +
+      '</div>';
+  }
+
   card.innerHTML =
+    badgeHtml +
     \`<div class="card-header">
       <span class="card-id">#\${issue.id}</span>
       <span class="card-title">\${escHtml(issue.title)}</span>
@@ -1293,6 +1316,7 @@ async function moveIssue(id, to) {
 }
 
 async function loadBoard() {
+  await loadEpicsMap();
   const res = await fetch("/api/issues");
   const issues = await res.json();
   buildBoard(issues);
@@ -1312,6 +1336,38 @@ function switchView(v) {
   document.getElementById('btn-epics').classList.toggle('active', v === 'epics');
   if (v === 'list') loadList();
   if (v === 'epics') loadEpics();
+}
+
+// --- Epic-Zuordnung, Farbe, Kürzel ---
+let epicsById = {};
+// Feste Palette (mittel-kräftige Töne, Light Mode) für Epics ohne eigenes color-Feld.
+const EPIC_PALETTE = ['#534AB7','#1D9E75','#D4537E','#185FA5','#BA7517','#993C1D','#0F6E56','#0C447C'];
+
+function hashId(id) {
+  let h = 0; const s = String(id);
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h;
+}
+function epicColor(epic) {
+  if (!epic) return '#5e6c84';
+  const c = (epic.color || '').trim();
+  return c || EPIC_PALETTE[hashId(epic.id) % EPIC_PALETTE.length];
+}
+function epicShortcode(epic) {
+  if (!epic) return '';
+  const s = (epic.shortcode || '').trim();
+  if (s) return s;
+  const words = (epic.title || '').split(/\\s+/).filter(Boolean);
+  const initials = words.map(w => w[0]).join('').slice(0, 3).toUpperCase();
+  return initials || 'EPIC';
+}
+async function loadEpicsMap() {
+  try {
+    const res = await fetch('/api/epics');
+    const epics = await res.json();
+    epicsById = {};
+    for (const e of epics) epicsById[e.id] = e;
+  } catch (e) { epicsById = {}; }
 }
 
 // --- Epics-Ansicht ---
@@ -1337,13 +1393,11 @@ function buildEpics(epics) {
   for (const epic of epics) {
     const total = epic.progress.total, done = epic.progress.done;
     const pct = total ? Math.round(done / total * 100) : 0;
-    const color = epic.color || '#5e6c84';
+    const color = epicColor(epic);
     const card = document.createElement('div');
     card.className = 'epic-card';
     card.style.borderLeftColor = color;
-    const chip = epic.shortcode
-      ? '<span class="epic-code" style="color:' + escHtml(color) + '">' + escHtml(epic.shortcode) + '</span>'
-      : '';
+    const chip = '<span class="epic-code" style="color:' + escHtml(color) + '">' + escHtml(epicShortcode(epic)) + '</span>';
     card.innerHTML =
       '<div class="epic-card-head">' +
         '<span class="epic-dot" style="background:' + escHtml(color) + '"></span>' +
@@ -1368,10 +1422,8 @@ async function openEpicDetail(epic) {
 
   const container = document.getElementById('epics-view');
   container.innerHTML = '';
-  const color = epic.color || '#5e6c84';
-  const codeHtml = epic.shortcode
-    ? '<span class="epic-code" style="color:' + escHtml(color) + '">' + escHtml(epic.shortcode) + '</span>'
-    : '';
+  const color = epicColor(epic);
+  const codeHtml = '<span class="epic-code" style="color:' + escHtml(color) + '">' + escHtml(epicShortcode(epic)) + '</span>';
 
   const head = document.createElement('div');
   head.className = 'epic-detail-head';
@@ -1525,10 +1577,19 @@ function buildListRow(issue) {
   const badge = STATUS_BADGE[issue.status] || { bg: '#e0e0e0', color: '#444', label: issue.status };
   const badgeEl = \`<span class="modal-badge list-badge" style="background:\${badge.bg};color:\${badge.color}">\${badge.label}</span>\`;
 
+  const epic = issue.parent ? epicsById[issue.parent] : null;
+  let epicEl = '';
+  if (epic) {
+    const c = epicColor(epic);
+    row.style.borderLeft = '3px solid ' + c;
+    epicEl = '<span class="list-epic card-epic" style="color:' + c + ';background:color-mix(in srgb,' + c + ' 13%,#fff)">' +
+      '<span class="card-epic-dot" style="background:' + c + '"></span>' + escHtml(epicShortcode(epic)) + '</span>';
+  }
+
   row.innerHTML =
     \`<span class="list-handle\${isArchived ? ' disabled' : ''}" title="Reihenfolge ändern">⠿</span>
      <span class="list-id">#\${escHtml(issue.id)}</span>
-     \${badgeEl}
+     \${badgeEl}\${epicEl}
      <span class="list-title">\${escHtml(issue.title)}</span>
      <span class="list-resizer" title="Spaltenbreite ziehen"></span>
      <span class="list-excerpt">\${escHtml(bodyExcerpt(issue.body || ''))}</span>\`;
@@ -1604,6 +1665,7 @@ async function listSaveOrder() {
 }
 
 async function loadList() {
+  await loadEpicsMap();
   const [res, archRes] = await Promise.all([
     fetch('/api/issues'),
     activeFilters.has('archived') ? fetch('/api/issues?archive=1') : Promise.resolve(null),
