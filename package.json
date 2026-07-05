@@ -1,0 +1,21 @@
+{
+  "name": "board-ui",
+  "version": "0.1.0",
+  "description": "Eine schlanke UI für ein lokales Kanbanboard",
+  "type": "module",
+  "bin": {
+    "board": "src/board.mjs",
+    "board-ui": "src/board-ui.mjs"
+  },
+  "scripts": {
+    "start": "node src/board-ui.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mannewolff/board-ui.git"
+  },
+  "license": "GPL-3.0-only"
+}
