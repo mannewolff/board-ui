@@ -121,6 +121,14 @@ function padId(n) {
   return String(n).padStart(4, "0");
 }
 
+// SYNC: Epic-Fortschritt aus den Kindern (parent-Zeiger). Gespiegelt aus board.mjs.
+// Kinder = nicht-Epic-Issues mit parent == epicId; done = Kinder im Status "done".
+function epicProgress(issues, epicId) {
+  const children = issues.filter((i) => i.type !== "epic" && i.parent === epicId);
+  const done = children.filter((i) => i.status === "done").length;
+  return { total: children.length, done };
+}
+
 function nextId(issuesDir) {
   if (!existsSync(issuesDir)) return 1;
   const nums = readdirSync(issuesDir)
