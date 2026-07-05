@@ -235,13 +235,13 @@ function handleRequest(req, res, issuesDir) {
     req.on("data", (chunk) => (body += chunk));
     req.on("end", () => {
       try {
-        const { title, body: issueBody } = JSON.parse(body);
+        const { title, body: issueBody, type, parent } = JSON.parse(body);
         if (!title || !title.trim()) {
           res.writeHead(400, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "Titel darf nicht leer sein" }));
           return;
         }
-        const created = createIssue(issuesDir, { title: title.trim(), body: issueBody });
+        const created = createIssue(issuesDir, { title: title.trim(), body: issueBody, type, parent });
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ ok: true, id: created.id }));
       } catch (e) {
@@ -866,6 +866,36 @@ const HTML = `<!DOCTYPE html>
   .epic-progress-bar { flex: 1; height: 8px; background: #ebecf0; border-radius: 4px; overflow: hidden; }
   .epic-progress-fill { height: 100%; background: #5e6c84; border-radius: 4px; transition: width .2s; }
   .epic-progress-label { font-size: 12px; color: #5e6c84; white-space: nowrap; }
+
+  /* Epic-Detailansicht */
+  .epic-detail-head { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+  .epic-back {
+    border: 1px solid #dfe1e6; background: #fff; color: #42526e; font-size: 13px;
+    padding: 6px 12px; border-radius: 3px; cursor: pointer;
+  }
+  .epic-back:hover { background: #f4f5f7; }
+  .epic-detail-title { display: flex; align-items: center; gap: 8px; flex: 1; }
+  .epic-add-story { margin-left: auto; }
+  .epic-mini-board { display: flex; gap: 10px; align-items: flex-start; }
+  .epic-mini-col { flex: 1; min-width: 0; background: #f4f5f7; border-radius: 4px; padding: 8px; }
+  .epic-mini-colhead {
+    display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .4px; color: #5e6c84; padding: 2px 4px 8px;
+  }
+  .epic-mini-colhead .dot { width: 8px; height: 8px; border-radius: 50%; background: #97a0af; }
+  .epic-mini-count { margin-left: auto; font-weight: 600; }
+  .epic-mini-body { display: flex; flex-direction: column; gap: 6px; min-height: 8px; }
+  .epic-mini-card {
+    background: #fff; border: 1px solid #dfe1e6; border-radius: 3px; padding: 8px 10px;
+    font-size: 13px; cursor: pointer; line-height: 1.4;
+  }
+  .epic-mini-card:hover { border-color: #c1c7d0; box-shadow: 0 1px 2px rgba(9,30,66,.13); }
+  .epic-mini-card .card-id { color: #5e6c84; font-size: 12px; margin-right: 4px; }
+  .epic-mini-card .card-title { color: #172b4d; }
+  .epic-mini-col.col-ready .epic-mini-colhead .dot { background: #0747a6; }
+  .epic-mini-col.col-in_progress .epic-mini-colhead .dot { background: #e4b400; }
+  .epic-mini-col.col-in_review .epic-mini-colhead .dot { background: #d93f0b; }
+  .epic-mini-col.col-done .epic-mini-colhead .dot { background: #0e8a16; }
 </style>
 </head>
 <body>
@@ -1149,7 +1179,8 @@ function closeModal() {
 
 const NEW_ISSUE_TEMPLATE = "\\n## Kontext\\n\\n## Aufgabe\\n\\n## Akzeptanzkriterium\\n\\n## Abhaengigkeiten\\n";
 
-function openNewIssueModal() {
+function openNewIssueModal(opts) {
+  opts = opts || {};
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
 
@@ -1192,7 +1223,7 @@ function openNewIssueModal() {
     const res = await fetch("/api/issues", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, body: bodyInput.value }),
+      body: JSON.stringify({ title, body: bodyInput.value, type: opts.type, parent: opts.parent }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -1201,7 +1232,9 @@ function openNewIssueModal() {
       return;
     }
     closeModal();
-    if (currentView === "list") loadList();
+    if (currentEpicDetail) openEpicDetail(currentEpicDetail);
+    else if (currentView === "list") loadList();
+    else if (currentView === "epics") loadEpics();
     else loadBoard();
   });
 
@@ -1282,7 +1315,10 @@ function switchView(v) {
 }
 
 // --- Epics-Ansicht ---
+let currentEpicDetail = null;
+
 async function loadEpics() {
+  currentEpicDetail = null;
   const res = await fetch('/api/epics');
   const epics = await res.json();
   buildEpics(epics);
@@ -1319,8 +1355,68 @@ function buildEpics(epics) {
         '<div class="epic-progress-bar"><div class="epic-progress-fill" style="width:' + pct + '%;background:' + escHtml(color) + '"></div></div>' +
         '<span class="epic-progress-label">' + done + '/' + total + ' Stories fertig</span>' +
       '</div>';
+    card.addEventListener('click', () => openEpicDetail(epic));
     container.appendChild(card);
   }
+}
+
+async function openEpicDetail(epic) {
+  currentEpicDetail = epic;
+  const res = await fetch('/api/issues');
+  const all = await res.json();
+  const children = all.filter(i => i.type !== 'epic' && i.parent === epic.id);
+
+  const container = document.getElementById('epics-view');
+  container.innerHTML = '';
+  const color = epic.color || '#5e6c84';
+  const codeHtml = epic.shortcode
+    ? '<span class="epic-code" style="color:' + escHtml(color) + '">' + escHtml(epic.shortcode) + '</span>'
+    : '';
+
+  const head = document.createElement('div');
+  head.className = 'epic-detail-head';
+  head.innerHTML =
+    '<button class="epic-back" type="button">← Alle Epics</button>' +
+    '<div class="epic-detail-title"><span class="epic-dot" style="background:' + escHtml(color) + '"></span>' + codeHtml +
+      '<span class="epic-name">' + escHtml(epic.title) + '</span></div>' +
+    '<button class="new-issue-btn epic-add-story" type="button">+ Neue Story</button>';
+  container.appendChild(head);
+  head.querySelector('.epic-back').addEventListener('click', () => loadEpics());
+  head.querySelector('.epic-add-story').addEventListener('click', () => openNewIssueModal({ type: 'story', parent: epic.id }));
+
+  if (!children.length) {
+    const empty = document.createElement('div');
+    empty.className = 'epics-empty';
+    empty.textContent = 'Noch keine Stories in diesem Epic. Lege über „+ Neue Story“ eine an.';
+    container.appendChild(empty);
+    return;
+  }
+
+  const byStatus = {};
+  for (const col of COLUMNS) byStatus[col.key] = [];
+  for (const c of children) { (byStatus[c.status] || byStatus['backlog']).push(c); }
+
+  const mini = document.createElement('div');
+  mini.className = 'epic-mini-board';
+  for (const col of COLUMNS) {
+    const items = byStatus[col.key] || [];
+    const colEl = document.createElement('div');
+    colEl.className = 'epic-mini-col col-' + col.key;
+    colEl.innerHTML = '<div class="epic-mini-colhead"><span class="dot"></span>' + col.label +
+      ' <span class="epic-mini-count">' + items.length + '</span></div>';
+    const bodyEl = document.createElement('div');
+    bodyEl.className = 'epic-mini-body';
+    for (const child of items) {
+      const card = document.createElement('div');
+      card.className = 'epic-mini-card';
+      card.innerHTML = '<span class="card-id">#' + escHtml(child.id) + '</span> <span class="card-title">' + escHtml(child.title) + '</span>';
+      card.addEventListener('click', () => openModal(child));
+      bodyEl.appendChild(card);
+    }
+    colEl.appendChild(bodyEl);
+    mini.appendChild(colEl);
+  }
+  container.appendChild(mini);
 }
 
 // --- Listenansicht ---
