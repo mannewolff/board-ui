@@ -214,6 +214,25 @@ function handleRequest(req, res, issuesDir) {
     return;
   }
 
+  // GET /api/state — billige Signatur des issues/-Ordners (Dateianzahl + neuester mtime),
+  // ohne volles Issue-JSON. Dient dem Client-Polling zum Erkennen externer Aenderungen.
+  if (req.method === "GET" && url.pathname === "/api/state") {
+    let count = 0;
+    let maxMtime = 0;
+    if (existsSync(issuesDir)) {
+      for (const f of readdirSync(issuesDir)) {
+        if (!f.endsWith(".md")) continue;
+        const st = statSync(join(issuesDir, f));
+        if (!st.isFile()) continue;
+        count++;
+        if (st.mtimeMs > maxMtime) maxMtime = st.mtimeMs;
+      }
+    }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ sig: count + ":" + maxMtime }));
+    return;
+  }
+
   // GET /api/issues  (optional: ?archive=1 für archivierte Issues)
   if (req.method === "GET" && url.pathname === "/api/issues") {
     if (url.searchParams.get("archive") === "1") {
@@ -1820,6 +1839,53 @@ async function loadList() {
   buildList(listAllIssues);
 }
 
+// --- Auto-Refresh: pollt /api/state und laedt die aktuelle Ansicht neu, wenn sich
+// der issues/-Ordner extern geaendert hat (z.B. board.mjs verschiebt ein Issue).
+let pollLastSig = null;
+let pollPending = false;
+let pollTimer = null;
+let dragActive = false;
+document.addEventListener('dragstart', function () { dragActive = true; });
+document.addEventListener('dragend', function () { dragActive = false; });
+
+function pollIsIdle() {
+  // Kein Reload waehrend ein Modal offen ist oder ein Drag laeuft.
+  return !document.querySelector('.modal-overlay') && !dragActive;
+}
+function pollRefreshView() {
+  if (currentEpicDetail) return openEpicDetail(currentEpicDetail);
+  if (currentView === 'list') return loadList();
+  if (currentView === 'epics') return loadEpics();
+  return loadBoard();
+}
+async function pollState() {
+  let sig;
+  try {
+    const res = await fetch('/api/state');
+    if (!res.ok) return;
+    sig = (await res.json()).sig;
+  } catch (e) { return; }
+  if (pollLastSig === null) { pollLastSig = sig; return; }
+  if (sig !== pollLastSig) { pollLastSig = sig; pollPending = true; }
+  // Geaenderte Signatur nur anwenden, wenn idle — sonst gemerkt lassen und spaeter nachholen.
+  if (pollPending && pollIsIdle()) {
+    pollPending = false;
+    await pollRefreshView();
+  }
+}
+function pollStart() {
+  if (pollTimer) return;
+  pollTimer = setInterval(pollState, 3000);
+}
+function pollStop() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+document.addEventListener('visibilitychange', function () {
+  // Bei verstecktem Tab pausieren, bei Rueckkehr sofort refreshen.
+  if (document.hidden) pollStop();
+  else { pollStart(); pollState(); }
+});
+
 async function init() {
   const res = await fetch("/api/config");
   const cfg = await res.json();
@@ -1837,6 +1903,8 @@ async function init() {
     document.getElementById("board-version").textContent = "v" + cfg.version;
   }
   await loadBoard();
+  await pollState(); // Signatur seeden (erster Aufruf laedt nicht neu)
+  pollStart();
 }
 
 init();
