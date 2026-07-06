@@ -1,0 +1,6 @@
+{
+  "local": {
+    "issuesDir": "issues",
+    "uiPort": 3011
+  }
+}

@@ -20,6 +20,17 @@ node src/board-ui.mjs [--port 3000]
 
 Öffnet die Kanban-Ansicht auf http://localhost:3000. Ohne Konfiguration werden Issues aus `issues/` im aktuellen Verzeichnis gelesen; über `.claude/workflow.config.json` (`local.issuesDir`) lässt sich ein anderer Ordner setzen.
 
+Der Port lässt sich pro Board fest über `.claude/workflow.config.json` (`local.uiPort`) setzen — praktisch, wenn mehrere Boards parallel laufen. Vorrang: `local.uiPort` schlägt `--port` schlägt Default `3000`. Eine Vorlage liegt in [`workflow.config.example.json`](workflow.config.example.json):
+
+```json
+{
+  "local": {
+    "issuesDir": "issues",
+    "uiPort": 3011
+  }
+}
+```
+
 Alternativ per npm-Script:
 
 ```bash

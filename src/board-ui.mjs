@@ -5,6 +5,8 @@
  *
  * Nutzung:
  *   node src/board-ui.mjs [--port 3000] [--name <Board-Name>]
+ *
+ * Port-Vorrang: config.local.uiPort (workflow.config.json) > --port > 3000.
  */
 
 import { createServer } from "node:http";
@@ -16,7 +18,7 @@ import { execSync } from "node:child_process";
 // --- Argument-Parser ---
 
 function parseArgs(argv) {
-  const result = { port: 3000 };
+  const result = {};
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--port" && argv[i + 1]) {
       result.port = Number(argv[i + 1]);
@@ -1832,6 +1834,8 @@ init();
 const args = parseArgs(process.argv.slice(2));
 const config = loadConfig();
 const issuesDir = resolve(config.local?.issuesDir || "issues");
+// Vorrang: config.local.uiPort (workflow.config.json) > --port > Default 3000.
+const port = config.local?.uiPort ?? args.port ?? 3000;
 
 const server = createServer((req, res) => {
   try {
@@ -1846,7 +1850,7 @@ const logArchiveError = (e) => process.stderr.write(`Archivierung fehlgeschlagen
 archiveOldIssues(issuesDir).catch(logArchiveError);
 setInterval(() => archiveOldIssues(issuesDir).catch(logArchiveError), 60 * 60 * 1000);
 
-server.listen(args.port, () => {
-  console.log(`Board läuft auf http://localhost:${args.port}`);
+server.listen(port, () => {
+  console.log(`Board läuft auf http://localhost:${port}`);
   console.log(`Issues-Verzeichnis: ${issuesDir}`);
 });
