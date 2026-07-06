@@ -37,6 +37,22 @@ Alternativ per npm-Script:
 npm start
 ```
 
+## Versionierung
+
+Die Board-UI trägt eine Versionskennung `x.y.z` (Start: `0.1.0`), sichtbar als Chip oben links im Board. Quelle ist die `VERSION`-Konstante in `src/board-ui.mjs` (funktioniert auch für die standalone ins Kit synchronisierte Datei); `package.json` wird im Gleichschritt gehalten.
+
+Erhöht wird über das Bump-Script, das beide Stellen synchron aktualisiert:
+
+```bash
+node tools/bump-version.mjs <patch|minor|major>
+```
+
+- **`patch`** (z+1) — läuft bei jedem **`push main`** (Teil der Push-Routine).
+- **`minor`** (y+1, z=0) — läuft bei jedem **`merge production`**.
+- **`major`** (x+1, y=0, z=0) — nur manuell, auf ausdrückliche Ansage.
+
+Das Script ändert nur die Dateien; Commit/Push macht die aufrufende Routine.
+
 ## Board-CLI
 
 Die CLI für Board-Operationen (`board.mjs`) lebt jetzt im [claude-workflow-kit](https://github.com/mannewolff/claude-workflow-kit) und wird dort gepflegt. Der Kit-Installer legt sie unter `.claude/kit/board.mjs` ab.

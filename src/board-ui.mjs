@@ -15,6 +15,12 @@ import { readdir, readFile, mkdir, rename, stat } from "node:fs/promises";
 import { resolve, join, basename } from "node:path";
 import { execSync } from "node:child_process";
 
+// Versionskennung (x.y.z). Einzige Anzeige-Quelle — funktioniert auch fuer die
+// standalone ins Kit synchronisierte board-ui.mjs (kein package.json noetig).
+// Gepflegt von tools/bump-version.mjs (haelt package.json im Gleichschritt):
+// "push main" erhoeht z (patch), "merge production" erhoeht y (minor), x nur manuell.
+const VERSION = "0.1.0";
+
 // --- Argument-Parser ---
 
 function parseArgs(argv) {
@@ -204,7 +210,7 @@ function handleRequest(req, res, issuesDir) {
   if (req.method === "GET" && url.pathname === "/api/config") {
     const columns = Object.entries(columnMap(config)).map(([key, label]) => ({ key, label }));
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ columns, boardName: args.name || null, root: process.cwd() }));
+    res.end(JSON.stringify({ columns, boardName: args.name || null, root: process.cwd(), version: VERSION }));
     return;
   }
 
@@ -453,6 +459,11 @@ const HTML = `<!DOCTYPE html>
     gap: 10px;
   }
   header h1 { font-size: 16px; font-weight: 600; }
+  header .version {
+    font-size: 11px; font-weight: 600; color: #5e6c84;
+    background: #f4f5f7; border: 1px solid #dfe1e6;
+    border-radius: 10px; padding: 1px 8px;
+  }
   header .subtitle { color: #6b778c; font-size: 12px; }
 
   .board {
@@ -950,6 +961,7 @@ const HTML = `<!DOCTYPE html>
 
 <header>
   <h1 id="board-title">claude-workflow-kit Board</h1>
+  <span class="version" id="board-version"></span>
   <span class="subtitle" id="board-subtitle">Lokaler Modus — Dateien in issues/</span>
   <div class="view-toggle">
     <button class="view-btn active" id="btn-board" onclick="switchView('board')">Board</button>
@@ -1820,6 +1832,9 @@ async function init() {
   if (cfg.root) {
     document.getElementById("board-subtitle").textContent =
       "Lokaler Modus — Dateien in issues/ — " + cfg.root;
+  }
+  if (cfg.version) {
+    document.getElementById("board-version").textContent = "v" + cfg.version;
   }
   await loadBoard();
 }
