@@ -4,7 +4,6 @@
   "description": "Eine schlanke UI für ein lokales Kanbanboard",
   "type": "module",
   "bin": {
-    "board": "src/board.mjs",
     "board-ui": "src/board-ui.mjs"
   },
   "scripts": {

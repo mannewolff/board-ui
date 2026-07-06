@@ -7,9 +7,10 @@ Ursprünglich Teil des [claude-workflow-kit](https://github.com/mannewolff/claud
 ## Bestandteile
 
 - `src/board-ui.mjs` — der HTTP-Server mit der Kanban-GUI. Zeigt Issues aus `issues/*.md` in fünf Spalten (Backlog, Ready, In Progress, In Review, Done), Listenansicht, Detail-Modal, Anlegen-Modal, automatische Archivierung.
-- `src/board.mjs` — provider-agnostische CLI für Board-Operationen (Adapter für `local`, `github`, `gitlab`). Liest `.claude/workflow.config.json`.
 
-Beide Dateien sind bewusst als eigenständige Single-File-Tools gebaut und einzeln lauffähig (portabel).
+Dieses Repo verantwortet **nur noch `board-ui.mjs`**. Die provider-agnostische Board-CLI (`board.mjs`) wird inzwischen im [claude-workflow-kit](https://github.com/mannewolff/claude-workflow-kit) selbst gepflegt und ist nicht mehr Teil dieses Repos.
+
+`board-ui.mjs` ist bewusst als eigenständiges Single-File-Tool gebaut und einzeln lauffähig (portabel).
 
 ## Board starten
 
@@ -25,27 +26,20 @@ Alternativ per npm-Script:
 npm start
 ```
 
-## CLI
+## Board-CLI
 
-```bash
-node src/board.mjs issue list [--status <status>]
-node src/board.mjs issue create --title "..." --body "..."
-node src/board.mjs issue move <id> <status>
-node src/board.mjs issue comment <id> --text "..."
-node src/board.mjs code repo-name
-```
+Die CLI für Board-Operationen (`board.mjs`) lebt jetzt im [claude-workflow-kit](https://github.com/mannewolff/claude-workflow-kit) und wird dort gepflegt. Der Kit-Installer legt sie unter `.claude/kit/board.mjs` ab.
 
 ## Sync mit dem claude-workflow-kit
 
-Das Kit bettet `board.mjs` und `board-ui.mjs` als Base64-Blobs in seinen `install.mjs` ein, damit Kit-Nutzer das Board ohne Extra-Schritt bekommen. Nach Änderungen in diesem Repo muss der Kit-Installer aktualisiert werden. Das geht **manuell** in drei Schritten (im ausgecheckten Kit-Repo, `<board-ui>` und `<kit>` sind die jeweiligen Repo-Pfade):
+Das Kit bettet `board-ui.mjs` als Base64-Blob in seinen `install.mjs` ein, damit Kit-Nutzer die Board-UI ohne Extra-Schritt bekommen. Nach Änderungen in diesem Repo muss der Kit-Installer aktualisiert werden. Das geht **manuell** in drei Schritten (im ausgecheckten Kit-Repo, `<board-ui>` und `<kit>` sind die jeweiligen Repo-Pfade):
 
-1. Aktuelle Dateien aus diesem Repo ins Kit kopieren. Am einfachsten über das mitgelieferte Script:
+1. Aktuelle Datei aus diesem Repo ins Kit kopieren. Am einfachsten über das mitgelieferte Script:
    ```bash
    npm run sync
    ```
-   Es liest das Zielverzeichnis aus `sync.config.json` (rechnerspezifisch, nicht eingecheckt — Vorlage: `sync.config.example.json`) und kopiert `src/board.mjs` und `src/board-ui.mjs` dorthin. Alternativ von Hand:
+   Es liest das Zielverzeichnis aus `sync.config.json` (rechnerspezifisch, nicht eingecheckt — Vorlage: `sync.config.example.json`) und kopiert `src/board-ui.mjs` dorthin. Alternativ von Hand:
    ```bash
-   cp <board-ui>/src/board.mjs    <kit>/kit/board.mjs
    cp <board-ui>/src/board-ui.mjs <kit>/kit/board-ui.mjs
    ```
 2. Eingebettete Blobs neu generieren:

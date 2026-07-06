@@ -3,8 +3,11 @@
  * sync-to-kit.mjs — kopiert die Board-Dateien ins claude-workflow-kit.
  *
  * Liest das Zielverzeichnis aus sync.config.json (rechnerspezifisch, gitignored)
- * und kopiert src/board.mjs und src/board-ui.mjs dorthin. Danach im Kit-Repo
+ * und kopiert src/board-ui.mjs dorthin. Danach im Kit-Repo
  * `node tools/sync-blobs.mjs` ausführen, um install.mjs zu aktualisieren.
+ *
+ * board.mjs wird bewusst NICHT mehr synchronisiert — seine Pflege liegt jetzt
+ * im Kit selbst. Dieses Repo verantwortet nur noch board-ui.mjs.
  *
  * Nutzung: node tools/sync-to-kit.mjs   (oder: npm run sync)
  */
@@ -44,7 +47,7 @@ if (!existsSync(targetDir) || !statSync(targetDir).isDirectory()) {
   fail(`Zielverzeichnis existiert nicht oder ist kein Verzeichnis: ${targetDir}`);
 }
 
-const files = ["board.mjs", "board-ui.mjs"];
+const files = ["board-ui.mjs"];
 for (const f of files) {
   const src = join(root, "src", f);
   if (!existsSync(src)) fail(`Quelldatei fehlt: ${src}`);
