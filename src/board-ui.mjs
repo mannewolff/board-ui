@@ -4,7 +4,7 @@
  * Startet einen HTTP-Server, der Issues aus issues/*.md als Board zeigt.
  *
  * Nutzung:
- *   node src/board-ui.mjs [--port 3000]
+ *   node src/board-ui.mjs [--port 3000] [--name <Board-Name>]
  */
 
 import { createServer } from "node:http";
@@ -20,6 +20,9 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--port" && argv[i + 1]) {
       result.port = Number(argv[i + 1]);
+      i++;
+    } else if (argv[i] === "--name" && argv[i + 1]) {
+      result.name = argv[i + 1];
       i++;
     }
   }
@@ -199,7 +202,7 @@ function handleRequest(req, res, issuesDir) {
   if (req.method === "GET" && url.pathname === "/api/config") {
     const columns = Object.entries(columnMap(config)).map(([key, label]) => ({ key, label }));
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ columns }));
+    res.end(JSON.stringify({ columns, boardName: args.name || null, root: process.cwd() }));
     return;
   }
 
@@ -915,8 +918,8 @@ const HTML = `<!DOCTYPE html>
 <body>
 
 <header>
-  <h1>claude-workflow-kit Board</h1>
-  <span class="subtitle">Lokaler Modus — Dateien in issues/</span>
+  <h1 id="board-title">claude-workflow-kit Board</h1>
+  <span class="subtitle" id="board-subtitle">Lokaler Modus — Dateien in issues/</span>
   <div class="view-toggle">
     <button class="view-btn active" id="btn-board" onclick="switchView('board')">Board</button>
     <button class="view-btn" id="btn-list" onclick="switchView('list')">Liste</button>
@@ -1717,6 +1720,15 @@ async function init() {
   const res = await fetch("/api/config");
   const cfg = await res.json();
   if (cfg.columns && cfg.columns.length) COLUMNS = cfg.columns;
+  if (cfg.boardName) {
+    const title = cfg.boardName + " Board";
+    document.getElementById("board-title").textContent = title;
+    document.title = title;
+  }
+  if (cfg.root) {
+    document.getElementById("board-subtitle").textContent =
+      "Lokaler Modus — Dateien in issues/ — " + cfg.root;
+  }
   await loadBoard();
 }
 
