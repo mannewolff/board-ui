@@ -238,13 +238,20 @@ function handleRequest(req, res, issuesDir) {
     req.on("data", (chunk) => (body += chunk));
     req.on("end", () => {
       try {
-        const { title, body: issueBody, type, parent } = JSON.parse(body);
+        const { title, body: issueBody, type, parent, shortcode, color } = JSON.parse(body);
         if (!title || !title.trim()) {
           res.writeHead(400, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "Titel darf nicht leer sein" }));
           return;
         }
-        const created = createIssue(issuesDir, { title: title.trim(), body: issueBody, type, parent });
+        const created = createIssue(issuesDir, {
+          title: title.trim(),
+          body: issueBody,
+          type,
+          parent,
+          shortcode: shortcode && shortcode.trim(),
+          color: color && color.trim(),
+        });
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ ok: true, id: created.id }));
       } catch (e) {
@@ -315,7 +322,7 @@ function handleRequest(req, res, issuesDir) {
     req.on("data", (chunk) => (body += chunk));
     req.on("end", () => {
       try {
-        const { title, body: newBody } = JSON.parse(body);
+        const { title, body: newBody, shortcode, color } = JSON.parse(body);
         if (!title || !title.trim()) {
           res.writeHead(400, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "Titel darf nicht leer sein" }));
@@ -331,6 +338,16 @@ function handleRequest(req, res, issuesDir) {
         const { meta, body: issueBody } = parseFrontmatter(raw);
         const { commentsRaw } = splitComments(issueBody);
         meta.title = title.trim();
+        // shortcode/color nur anfassen, wenn das Feld mitgeschickt wurde (nur Epics tun das).
+        // Leerer Wert entfernt das Feld → Titel-Initialen- bzw. Palette-Fallback greift wieder.
+        if (shortcode !== undefined) {
+          if (shortcode && shortcode.trim()) meta.shortcode = shortcode.trim();
+          else delete meta.shortcode;
+        }
+        if (color !== undefined) {
+          if (color && color.trim()) meta.color = color.trim();
+          else delete meta.color;
+        }
         writeFileSync(file, serializeFrontmatter(meta, (newBody || "") + commentsRaw), "utf-8");
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ ok: true }));
@@ -750,6 +767,18 @@ const HTML = `<!DOCTYPE html>
   .new-issue-field textarea:focus,
   .new-issue-field select:focus { outline: none; border-color: #0075ca; }
   .new-issue-create:not(:disabled) { cursor: pointer; }
+  .epic-color-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+  .epic-swatch {
+    width: 24px; height: 24px; padding: 0;
+    border-radius: 6px; border: 2px solid transparent;
+    cursor: pointer; box-sizing: border-box;
+  }
+  .epic-swatch.selected { border-color: #172b4d; box-shadow: 0 0 0 2px #fff inset; }
+  .epic-swatch-auto {
+    background: #f4f5f7; color: #6b778c;
+    font-size: 11px; font-weight: 700; line-height: 1;
+    border: 1px solid #d0d7de;
+  }
 
   /* Listenansicht */
   .list-view {
@@ -1155,15 +1184,38 @@ function enterEditMode(window_, issue, mainBody) {
   titleInput.value = issue.title;
   bodyInput.value = mainBody;
 
+  // Epics: Kuerzel + Farbe editierbar (per DOM eingefuegt, um verschachtelte Templates zu vermeiden).
+  const isEpic = issue.type === "epic";
+  let shortcodeInput = null;
+  let getEpicColor = null;
+  if (isEpic) {
+    const field = document.createElement("div");
+    field.className = "new-issue-field";
+    field.innerHTML =
+      '<label for="edit-issue-shortcode">Kürzel</label>' +
+      '<input id="edit-issue-shortcode" type="text" maxlength="6" placeholder="leer = aus Titel">' +
+      '<label style="margin-top:8px">Farbe</label>' +
+      '<div class="epic-color-picker" id="edit-issue-color"></div>';
+    titleInput.closest(".new-issue-field").after(field);
+    shortcodeInput = field.querySelector("#edit-issue-shortcode");
+    shortcodeInput.value = issue.shortcode || "";
+    getEpicColor = buildColorPicker(field.querySelector("#edit-issue-color"), issue.color || "");
+  }
+
   const saveBtn = bodyEl.querySelector(".edit-save-btn");
   saveBtn.addEventListener("click", async () => {
     const newTitle = titleInput.value.trim();
     if (!newTitle) return;
     saveBtn.disabled = true;
+    const payload = { title: newTitle, body: bodyInput.value };
+    if (isEpic) {
+      payload.shortcode = shortcodeInput.value.trim();
+      payload.color = getEpicColor();
+    }
     const res = await fetch(\`/api/issues/\${issue.id}/edit\`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: newTitle, body: bodyInput.value }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -1224,6 +1276,12 @@ async function openNewIssueModal(opts) {
         <label for="new-issue-parent">Epic</label>
         <select id="new-issue-parent"></select>
       </div>
+      <div class="new-issue-field" id="new-issue-epic-fields" style="display:none">
+        <label for="new-issue-shortcode">Kürzel</label>
+        <input id="new-issue-shortcode" type="text" maxlength="6" placeholder="leer = aus Titel">
+        <label style="margin-top:8px">Farbe</label>
+        <div class="epic-color-picker" id="new-issue-color"></div>
+      </div>
       <div class="new-issue-field">
         <label for="new-issue-title">Titel</label>
         <input id="new-issue-title" type="text" placeholder="Kurzer, praeziser Titel">
@@ -1244,6 +1302,9 @@ async function openNewIssueModal(opts) {
   const titleInput = window_.querySelector("#new-issue-title");
   const bodyInput = window_.querySelector("#new-issue-body");
   const createBtn = window_.querySelector(".new-issue-create");
+  const epicFields = window_.querySelector("#new-issue-epic-fields");
+  const shortcodeInput = window_.querySelector("#new-issue-shortcode");
+  const getEpicColor = buildColorPicker(window_.querySelector("#new-issue-color"), "");
   bodyInput.value = NEW_ISSUE_TEMPLATE;
 
   parentSelect.innerHTML = '<option value="">(kein Epic)</option>' +
@@ -1254,12 +1315,14 @@ async function openNewIssueModal(opts) {
   typeSelect.value = opts.type || "task";
   if (opts.parent) parentSelect.value = opts.parent;
 
-  function syncParentVisibility() {
-    // Epics haben keinen Parent (E4/E5)
-    parentField.style.display = typeSelect.value === "epic" ? "none" : "";
+  function syncTypeFields() {
+    // Epics haben keinen Parent (E4/E5), dafuer Kuerzel + Farbe.
+    const isEpic = typeSelect.value === "epic";
+    parentField.style.display = isEpic ? "none" : "";
+    epicFields.style.display = isEpic ? "" : "none";
   }
-  syncParentVisibility();
-  typeSelect.addEventListener("change", syncParentVisibility);
+  syncTypeFields();
+  typeSelect.addEventListener("change", syncTypeFields);
 
   titleInput.addEventListener("input", () => {
     createBtn.disabled = !titleInput.value.trim();
@@ -1271,10 +1334,15 @@ async function openNewIssueModal(opts) {
     createBtn.disabled = true;
     const type = typeSelect.value;
     const parent = type === "epic" ? "" : parentSelect.value;
+    const payload = { title, body: bodyInput.value, type, parent };
+    if (type === "epic") {
+      payload.shortcode = shortcodeInput.value.trim();
+      payload.color = getEpicColor();
+    }
     const res = await fetch("/api/issues", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, body: bodyInput.value, type, parent }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -1400,6 +1468,28 @@ function epicShortcode(epic) {
   const words = (epic.title || '').split(/\\s+/).filter(Boolean);
   const initials = words.map(w => w[0]).join('').slice(0, 3).toUpperCase();
   return initials || 'EPIC';
+}
+// Baut eine Farb-Swatch-Auswahl (Palette + "automatisch") in container und liefert
+// einen Getter, der den gewaehlten Farbwert zurueckgibt ('' = automatisch/Fallback).
+function buildColorPicker(container, initial) {
+  let selected = (initial || '').trim();
+  container.innerHTML = '';
+  const swatches = [];
+  const options = [''].concat(EPIC_PALETTE);
+  options.forEach(function (val) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'epic-swatch' + (val === selected ? ' selected' : '');
+    if (val) { b.style.background = val; b.title = val; }
+    else { b.classList.add('epic-swatch-auto'); b.textContent = 'A'; b.title = 'automatisch'; }
+    b.addEventListener('click', function () {
+      selected = val;
+      swatches.forEach(function (s) { s.el.classList.toggle('selected', s.val === selected); });
+    });
+    container.appendChild(b);
+    swatches.push({ el: b, val: val });
+  });
+  return function () { return selected; };
 }
 async function loadEpicsMap() {
   try {
