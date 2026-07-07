@@ -1,6 +1,6 @@
 {
   "name": "board-ui",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Eine schlanke UI für ein lokales Kanbanboard",
   "type": "module",
   "bin": {
