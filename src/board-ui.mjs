@@ -1346,10 +1346,15 @@ async function openNewIssueModal(opts) {
         <textarea id="new-issue-body"></textarea>
       </div>
       <button class="modal-comment-send new-issue-create" disabled>Anlegen</button>
+      <button class="modal-edit-cancel-btn new-issue-cancel" type="button">Abbrechen</button>
     </div>\`;
 
   overlay.appendChild(window_);
   document.body.appendChild(overlay);
+
+  // Formular-Modal: von Anfang an gesperrt, damit Backdrop/Escape den Entwurf nicht verwerfen.
+  overlay.dataset.locked = "1";
+  overlay._onCancel = closeModal;
 
   const typeSelect = window_.querySelector("#new-issue-type");
   const parentField = window_.querySelector("#new-issue-parent-field");
@@ -1413,8 +1418,11 @@ async function openNewIssueModal(opts) {
   });
 
   titleInput.focus();
-  window_.querySelector(".modal-close").addEventListener("click", closeModal);
-  overlay.addEventListener("click", (e) => { if (e.target === overlay) closeModal(); });
+  // Schliessen nur ueber Abbrechen/Anlegen — "×" ausblenden, Backdrop im
+  // gesperrten Zustand ignorieren (konsistent zum Edit-Modal, Issue #15/#16).
+  window_.querySelector(".modal-close").style.display = "none";
+  window_.querySelector(".new-issue-cancel").addEventListener("click", closeModal);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay && overlay.dataset.locked !== "1") closeModal(); });
   document.addEventListener("keydown", handleEsc);
 }
 
