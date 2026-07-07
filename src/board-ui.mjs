@@ -1184,10 +1184,9 @@ function openModal(issue) {
     enterEditMode(window_, issue, mainBody);
   });
 
-  // Schließen via × oder Overlay-Klick (nicht Modal selbst).
-  // Im gesperrten Zustand (Edit-Formular) schließt der Backdrop-Klick nicht.
+  // Schließen nur über × oder Escape — ein Klick neben das Modal schließt NICHT.
+  // "Modal" heisst modal: kein versehentliches Zugehen bei Klick auf den Backdrop.
   window_.querySelector(".modal-close").addEventListener("click", closeModal);
-  overlay.addEventListener("click", (e) => { if (e.target === overlay && overlay.dataset.locked !== "1") closeModal(); });
   document.addEventListener("keydown", handleEsc);
 }
 
@@ -1418,11 +1417,9 @@ async function openNewIssueModal(opts) {
   });
 
   titleInput.focus();
-  // Schliessen nur ueber Abbrechen/Anlegen — "×" ausblenden, Backdrop im
-  // gesperrten Zustand ignorieren (konsistent zum Edit-Modal, Issue #15/#16).
+  // Schliessen nur ueber Abbrechen/Anlegen — "×" ausblenden, kein Backdrop-Schliessen.
   window_.querySelector(".modal-close").style.display = "none";
   window_.querySelector(".new-issue-cancel").addEventListener("click", closeModal);
-  overlay.addEventListener("click", (e) => { if (e.target === overlay && overlay.dataset.locked !== "1") closeModal(); });
   document.addEventListener("keydown", handleEsc);
 }
 
