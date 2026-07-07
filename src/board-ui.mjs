@@ -1184,15 +1184,33 @@ function openModal(issue) {
     enterEditMode(window_, issue, mainBody);
   });
 
-  // Schließen via × oder Overlay-Klick (nicht Modal selbst)
+  // Schließen via × oder Overlay-Klick (nicht Modal selbst).
+  // Im gesperrten Zustand (Edit-Formular) schließt der Backdrop-Klick nicht.
   window_.querySelector(".modal-close").addEventListener("click", closeModal);
-  overlay.addEventListener("click", (e) => { if (e.target === overlay) closeModal(); });
+  overlay.addEventListener("click", (e) => { if (e.target === overlay && overlay.dataset.locked !== "1") closeModal(); });
   document.addEventListener("keydown", handleEsc);
 }
 
 function enterEditMode(window_, issue, mainBody) {
+  // Overlay sperren: Backdrop-Klick und Escape schließen jetzt nicht mehr hart,
+  // damit im Edit-Formular keine Eingaben verloren gehen.
+  const overlay = window_.closest(".modal-overlay");
+  if (overlay) {
+    overlay.dataset.locked = "1";
+    overlay._onCancel = cancelEdit;
+  }
+
   const editBtn = window_.querySelector(".modal-edit-btn");
   if (editBtn) editBtn.style.display = "none";
+
+  // Im Edit-Modus nur noch Speichern/Abbrechen — "×" ausblenden.
+  const closeBtn = window_.querySelector(".modal-close");
+  if (closeBtn) closeBtn.style.display = "none";
+
+  function cancelEdit() {
+    closeModal();
+    openModal(issue);
+  }
 
   const commentsEl = window_.querySelector(".modal-comments");
   const commentFormEl = window_.querySelector(".modal-comment-form");
@@ -1261,16 +1279,20 @@ function enterEditMode(window_, issue, mainBody) {
     else loadBoard();
   });
 
-  bodyEl.querySelector(".modal-edit-cancel-btn").addEventListener("click", () => {
-    closeModal();
-    openModal(issue);
-  });
+  bodyEl.querySelector(".modal-edit-cancel-btn").addEventListener("click", cancelEdit);
 
   titleInput.focus();
 }
 
 function handleEsc(e) {
-  if (e.key === "Escape") closeModal();
+  if (e.key !== "Escape") return;
+  const overlay = document.querySelector(".modal-overlay");
+  // Gesperrtes Formular: Escape wirkt als Abbrechen, nicht als harter Close.
+  if (overlay && overlay.dataset.locked === "1") {
+    if (typeof overlay._onCancel === "function") overlay._onCancel();
+    return;
+  }
+  closeModal();
 }
 
 function closeModal() {
