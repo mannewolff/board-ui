@@ -24,3 +24,12 @@ TestResults.xml
 
 # Lokale Sync-Konfiguration (rechnerspezifisch, siehe sync.config.example.json)
 sync.config.json
+
+# Lokale Umgebungs-/IDE-Dateien
+.DS_Store
+.idea/
+
+# Lokale Preview-/Adapter-Artefakte (nicht Teil des Repos, issueTracker ist github)
+.claude/launch.json
+.claude/board-meta-cache.json
+issues/
