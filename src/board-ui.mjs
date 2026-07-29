@@ -3,8 +3,11 @@
  * board-ui.mjs — Lokale Kanban-GUI (eigenstaendiges board-ui-Projekt).
  * Startet einen HTTP-Server, der Issues aus issues/*.md als Board zeigt.
  *
- * Nutzung:
+ * Nutzung in diesem Repo:
  *   node src/board-ui.mjs [--port 3000] [--name <Board-Name>] [-h|--help]
+ *
+ * Nutzung als kopiertes Kit-Tool (in einem fremden Projekt, vom Projekt-Root aus):
+ *   node .claude/kit/board-ui.mjs [--port 3000] [--name <Board-Name>] [-h|--help]
  *
  * Port-Vorrang: config.local.uiPort (workflow.config.json) > --port > 3000.
  */
@@ -40,12 +43,13 @@ function parseArgs(argv) {
 }
 
 function helpText() {
-  return `board-ui.mjs (v${VERSION}) — ein einfacher Viewer. Er wird ins Projektverzeichnis
-unter .claude/kit/ kopiert und stellt ein einfaches Kanban-Board bereit, um die
-lokalen Issues (issues/*.md) zu visualisieren.
+  return `board-ui.mjs (v${VERSION}) — ein einfacher Viewer. Diese Datei wird ins
+Projektverzeichnis unter .claude/kit/board-ui.mjs kopiert und von dort, vom
+Projekt-Root aus, aufgerufen. Sie stellt ein einfaches Kanban-Board bereit,
+um die lokalen Issues (issues/*.md) zu visualisieren.
 
-Nutzung:
-  node board-ui.mjs [--port <Port>] [--name <Board-Name>] [-h|--help]
+Nutzung (vom Projekt-Root aus):
+  node .claude/kit/board-ui.mjs [--port <Port>] [--name <Board-Name>] [-h|--help]
 
 Parameter:
   --port <Port>       Port fuer den HTTP-Server (Default: 3000)
