@@ -4,7 +4,7 @@
  * Startet einen HTTP-Server, der Issues aus issues/*.md als Board zeigt.
  *
  * Nutzung:
- *   node src/board-ui.mjs [--port 3000] [--name <Board-Name>]
+ *   node src/board-ui.mjs [--port 3000] [--name <Board-Name>] [-h|--help]
  *
  * Port-Vorrang: config.local.uiPort (workflow.config.json) > --port > 3000.
  */
@@ -32,9 +32,30 @@ function parseArgs(argv) {
     } else if (argv[i] === "--name" && argv[i + 1]) {
       result.name = argv[i + 1];
       i++;
+    } else if (argv[i] === "-h" || argv[i] === "--help") {
+      result.help = true;
     }
   }
   return result;
+}
+
+function helpText() {
+  return `board-ui.mjs (v${VERSION}) — ein einfacher Viewer. Er wird ins Projektverzeichnis
+unter .claude/kit/ kopiert und stellt ein einfaches Kanban-Board bereit, um die
+lokalen Issues (issues/*.md) zu visualisieren.
+
+Nutzung:
+  node board-ui.mjs [--port <Port>] [--name <Board-Name>] [-h|--help]
+
+Parameter:
+  --port <Port>       Port fuer den HTTP-Server (Default: 3000)
+  --name <Name>       Board-Titel im Header
+  -h, --help          Diese Hilfe anzeigen und beenden
+
+Konfiguration (optional, .claude/workflow.config.json oder workflow.config.json):
+  local.uiPort        Ueberschreibt den Port. Vorrang: config.local.uiPort > --port > 3000.
+  local.issuesDir     Verzeichnis mit den Issue-Dateien (Default: issues)
+`;
 }
 
 // --- Config laden ---
@@ -1946,6 +1967,10 @@ init();
 // --- Start ---
 
 const args = parseArgs(process.argv.slice(2));
+if (args.help) {
+  process.stdout.write(helpText());
+  process.exit(0);
+}
 const config = loadConfig();
 const issuesDir = resolve(config.local?.issuesDir || "issues");
 // Vorrang: config.local.uiPort (workflow.config.json) > --port > Default 3000.
